@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Entry & Record Management</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a73e8">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
+    .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    h2 { text-align: center; color: #1a73e8; margin-top: 0; margin-bottom: 25px; font-size: 24px; }
+    
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group.full-width { grid-column: 1 / -1; }
+    label { font-weight: 600; margin-bottom: 6px; font-size: 14px; color: #444; }
+    input, select, textarea { padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+    input:focus, select:focus, textarea:focus { border-color: #1a73e8; box-shadow: 0 0 5px rgba(26,115,232,0.3); }
+    input[readonly] { background-color: #f1f3f4; cursor: not-allowed; font-weight: 600; }
+    
+    .btn-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    button { padding: 10px 20px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 14px; }
+    .btn-submit { background-color: #1a73e8; color: white; }
+    .btn-submit:hover { background-color: #1557b0; }
+    .btn-export { background-color: #34a853; color: white; }
+    .btn-export:hover { background-color: #2b8a44; }
+    .btn-install { background-color: #f2994a; color: white; display: none; }
+    .btn-install:hover { background-color: #e0883b; }
+    .btn-danger { background-color: #ea4335; color: white; padding: 6px 12px; font-size: 12px; border-radius: 4px; }
+    .btn-danger:hover { background-color: #c5221f; }
+    
+    .search-bar { margin: 25px 0 15px 0; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap; }
+    .search-input { width: 100%; max-width: 420px; padding: 10px 14px; border: 2px solid #1a73e8; border-radius: 6px; font-size: 14px; }
+    
+    .table-responsive { overflow-x: auto; margin-top: 10px; border-radius: 6px; border: 1px solid #e0e0e0; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+    th, td { padding: 12px; border-bottom: 1px solid #eee; }
+    th { background-color: #f8f9fa; color: #202124; font-weight: 700; white-space: nowrap; }
+    tr:hover { background-color: #f9fbfd; }
+    
+    .badge { padding: 5px 10px; border-radius: 20px; font-weight: 600; font-size: 12px; display: inline-block; }
+    .badge-fully { background-color: #e6f4ea; color: #137333; }
+    .badge-partially { background-color: #fef7e0; color: #b06000; }
+    .badge-due { background-color: #fce8e6; color: #c5221f; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+    <h2 style="margin: 0;">Data Entry & Record Management (PWA)</h2>
+    <button id="installBtn" class="btn-install">📲 ইন্সটল অ্যাপ</button>
+  </div>
+  
+  <form id="entryForm">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Name (নাম) *</label>
+        <input type="text" id="name" required placeholder="গ্রাহক বা শিক্ষার্থীর নাম">
+      </div>
+      
+      <div class="form-group">
+        <label>Certificate No *</label>
+        <input type="text" id="certNo" required placeholder="সার্টিফিকেট নম্বর">
+      </div>
+      
+      <div class="form-group">
+        <label>Mobile / Reference No *</label>
+        <input type="text" id="mobileRef" required placeholder="মোবাইল বা রেফারেন্স নম্বর">
+      </div>
+
+      <div class="form-group">
+        <label>Total Fee / Payable Amount *</label>
+        <input type="number" id="totalAmount" min="0" required placeholder="মোট প্রদেয় টাকা" oninput="calculatePayment()">
+      </div>
+
+      <div class="form-group">
+        <label>Amount Paid (পরিশোধিত টাকা) *</label>
+        <input type="number" id="amountPaid" min="0" required placeholder="পরিশোধ করা টাকা" oninput="calculatePayment()">
+      </div>
+      
+      <div class="form-group">
+        <label>Remaining (বাকি টাকা)</label>
+        <input type="number" id="remaining" readonly placeholder="স্বয়ংক্রিয় হিসাব">
+      </div>
+      
+      <div class="form-group">
+        <label>Payment Mode (পরিশোধের অবস্থা)</label>
+        <input type="text" id="paymentMode" readonly placeholder="স্বয়ংক্রিয় নির্ধারণ">
+      </div>
+
+      <div class="form-group">
+        <label>Status</label>
+        <select id="status">
+          <option value="Active">Active</option>
+          <option value="Pending">Pending</option>
+          <option value="Completed">Completed</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+      </div>
+
+      <div class="form-group full-width">
+        <label>Description (বিবরণ)</label>
+        <textarea id="description" rows="2" placeholder="প্রয়োজনীয় অতিরিক্ত বিবরণ বা তথ্য"></textarea>
+      </div>
+    </div>
+    
+    <div class="btn-group">
+      <button type="submit" class="btn-submit">💾 রেকর্ড সেভ করুন</button>
+      <button type="button" class="btn-export" onclick="exportToCSV()">📥 এক্সেল/CSV ডাউনলোড</button>
+    </div>
+  </form>
+
+  <div class="search-bar">
+    <input type="text" id="searchInput" class="search-input" placeholder="🔍 নাম, সার্টিফিকেট বা মোবাইল নম্বর দিয়ে সার্চ করুন..." onkeyup="renderTable()">
+    <span id="recordCount" style="font-weight: 600; color: #555;"></span>
+  </div>
+
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Cert No</th>
+          <th>Mobile/Ref</th>
+          <th>Total</th>
+          <th>Paid</th>
+          <th>Remaining</th>
+          <th>Payment Type</th>
+          <th>Status</th>
+          <th>Description</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="dataTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let records = JSON.parse(localStorage.getItem('appRecords') || '[]');
+
+  function calculatePayment() {
+    const total = parseFloat(document.getElementById('totalAmount').value) || 0;
+    const paid = parseFloat(document.getElementById('amountPaid').value) || 0;
+    const remaining = Math.max(0, total - paid);
+    document.getElementById('remaining').value = remaining;
+
+    let mode = 'Total Due';
+    if (paid >= total && total > 0) {
+      mode = 'Fully Paid';
+    } else if (paid > 0 && paid < total) {
+      mode = 'Partially Paid';
+    } else {
+      mode = 'Total Due';
+    }
+    document.getElementById('paymentMode').value = mode;
+  }
+
+  document.getElementById('entryForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const record = {
+      id: Date.now(),
+      name: document.getElementById('name').value.trim(),
+      certNo: document.getElementById('certNo').value.trim(),
+      mobileRef: document.getElementById('mobileRef').value.trim(),
+      totalAmount: parseFloat(document.getElementById('totalAmount').value) || 0,
+      amountPaid: parseFloat(document.getElementById('amountPaid').value) || 0,
+      remaining: parseFloat(document.getElementById('remaining').value) || 0,
+      paymentMode: document.getElementById('paymentMode').value,
+      status: document.getElementById('status').value,
+      description: document.getElementById('description').value.trim()
+    };
+
+    records.unshift(record);
+    localStorage.setItem('appRecords', JSON.stringify(records));
+    this.reset();
+    document.getElementById('remaining').value = '';
+    document.getElementById('paymentMode').value = '';
+    renderTable();
+  });
+
+  function deleteRecord(id) {
+    if (confirm('আপনি কি এই রেকর্ডটি মুছে ফেলতে চান?')) {
+      records = records.filter(r => r.id !== id);
+      localStorage.setItem('appRecords', JSON.stringify(records));
+      renderTable();
+    }
+  }
+
+  function renderTable() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    const tbody = document.getElementById('dataTableBody');
+    tbody.innerHTML = '';
+
+    const filtered = records.filter(r => 
+      r.name.toLowerCase().includes(query) ||
+      r.certNo.toLowerCase().includes(query) ||
+      r.mobileRef.toLowerCase().includes(query) ||
+      r.status.toLowerCase().includes(query) ||
+      r.paymentMode.toLowerCase().includes(query)
+    );
+
+    document.getElementById('recordCount').innerText = `মোট রেকর্ড: ${filtered.length}`;
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 25px; color: #888;">কোনো রেকর্ড পাওয়া যায়নি।</td></tr>`;
+      return;
+    }
+
+    filtered.forEach(r => {
+      let badgeClass = 'badge-due';
+      if (r.paymentMode === 'Fully Paid') badgeClass = 'badge-fully';
+      else if (r.paymentMode === 'Partially Paid') badgeClass = 'badge-partially';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${r.name}</strong></td>
+        <td>${r.certNo}</td>
+        <td>${r.mobileRef}</td>
+        <td>₹${r.totalAmount.toLocaleString()}</td>
+        <td style="color: #2b8a44; font-weight:600;">₹${r.amountPaid.toLocaleString()}</td>
+        <td style="color: #c5221f; font-weight:600;">₹${r.remaining.toLocaleString()}</td>
+        <td><span class="badge ${badgeClass}">${r.paymentMode}</span></td>
+        <td>${r.status}</td>
+        <td>${r.description || '-'}</td>
+        <td><button class="btn-danger" onclick="deleteRecord(${r.id})">Delete</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function exportToCSV() {
+    if (records.length === 0) {
+      alert('ডাউনলোড করার মতো কোনো ডেটা নেই!');
+      return;
+    }
+    const headers = ["Name", "Certificate No", "Mobile/Ref", "Total Amount", "Amount Paid", "Remaining", "Payment Type", "Status", "Description"];
+    const rows = records.map(r => [
+      `"${r.name}"`, `"${r.certNo}"`, `"${r.mobileRef}"`, r.totalAmount, r.amountPaid, r.remaining, `"${r.paymentMode}"`, `"${r.status}"`, `"${(r.description || '').replace(/"/g, '""')}"`
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8,﻿" + [headers.join(','), ...rows.map(e => e.join(','))].join('
+');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Data_Records_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // Register Service Worker for PWA
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('ServiceWorker registered:', reg.scope))
+        .catch(err => console.log('ServiceWorker failed:', err));
+    });
+  }
+
+  // Handle PWA installation prompt
+  let deferredPrompt;
+  const installBtn = document.getElementById('installBtn');
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'inline-block';
+  });
+
+  installBtn.addEventListener('click', () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        }
+        deferredPrompt = null;
+        installBtn.style.display = 'none';
+      });
+    }
+  });
+
+  renderTable();
+</script>
+
+</body>
+</html>
